@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'widgets/gradient_scaffold.dart'; // Import the GradientScaffold widget
+import 'screens/map_screen.dart'; // Import the MapScreen widget
 
 void main() {
   runApp(const MyApp());
@@ -21,7 +22,8 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.poppinsTextTheme(), 
       ),
       // It tells the app to load HomeScreen
-      home: const HomeScreen(), 
+      //home: const HomeScreen(), 
+      home: const MapScreen(),
     );
   }
 }

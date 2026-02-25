@@ -26,9 +26,12 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        targetSdkVersion 33
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+        multiDexEnabled true
+
+        manifestPlaceholders = [googleMapsKey: "AIzaSyByTuoDuYoC5wbZlZiMGJDYIUdG2XVnPLk"]
     }
 
     buildTypes {
@@ -43,3 +46,10 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation 'com.google.android.gms:play-services-maps:18.2.0'
+    implementation 'com.google.android.gms:play-services-location:21.0.1'
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
+
