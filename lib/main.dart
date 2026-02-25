@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       ),
       // It tells the app to load HomeScreen
       //home: const HomeScreen(), 
-      home: const MapScreen(),
+      home: const HomeScreen(),
     );
   }
 }
