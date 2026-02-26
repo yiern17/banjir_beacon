@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'widgets/gradiend_scaffold.dart'; // Import the GradientScaffold widget
 
+// 1. ADD THIS LINE HERE:
+import 'screens/info_screen.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -22,6 +25,8 @@ class MyApp extends StatelessWidget {
       ),
       // It tells the app to load HomeScreen
       home: const HomeScreen(), 
+      // 2. CHANGE THIS LINE to InfoScreen():
+      //home: const InfoScreen(),
     );
   }
 }
