@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/gradient_scaffold.dart';
+import 'report_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -12,184 +12,110 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  static const LatLng _kuantanCenter = LatLng(3.8126, 103.3256);
   GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
-  LatLng? _currentPosition;
-  bool _isLoading = true;
-  String _selectedMapType = 'normal';
+  MapType _currentMapType = MapType.normal;
   bool _showLegend = false;
-  bool _mapInitialized = false;
-  String? _errorMessage;
-  
-  // Predefined locations in Kuantan for demo
-  final List<Map<String, dynamic>> _dummyReports = [
+
+  // 1. Hardcoded Shelters for Demo
+  final List<Map<String, dynamic>> _hardcodedShelters = [
     {
-      'id': '1',
-      'lat': 3.8167,
-      'lng': 103.3317,
-      'title': 'Severe Flooding',
-      'snippet': 'Water level: 1.5m - Do not pass',
-      'severity': 'high',
-      'timestamp': DateTime.now().subtract(const Duration(minutes: 30)),
-      'verified': true,
-    },
-    {
-      'id': '2',
-      'lat': 3.8267,
-      'lng': 103.3417,
-      'title': 'Moderate Flooding',
-      'snippet': 'Water level: 0.8m - Pass with caution',
-      'severity': 'medium',
-      'timestamp': DateTime.now().subtract(const Duration(hours: 1)),
-      'verified': true,
-    },
-    {
-      'id': '3',
+      'id': 'shelter_1',
+      'name': 'Dewan Orang Ramai Kuantan',
       'lat': 3.8067,
       'lng': 103.3217,
-      'title': 'Evacuation Center',
-      'snippet': 'Dewan Orang Ramai Kuantan - Open for evacuees',
-      'severity': 'shelter',
-      'timestamp': DateTime.now().subtract(const Duration(hours: 2)),
-      'verified': true,
+    },
+    {
+      'id': 'shelter_2',
+      'name': 'SK Bukit Sekilau Shelter',
+      'lat': 3.8190,
+      'lng': 103.3250,
     },
   ];
+
+  
+  Future<void> syncHardcodedSheltersToFirestore() async {
+    final collection = FirebaseFirestore.instance.collection('shelters');
+    
+    for (var s in _hardcodedShelters) {
+      await collection.doc(s['id']).set({
+        'name': s['name'],
+        'location': GeoPoint(s['lat'], s['lng']),
+        'address': s['address'],
+        'type': 'OFFICIAL_SHELTER',
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _initializeMap();
+    _loadAllMarkers(); // Single call to load everything
   }
 
-  Future<void> _initializeMap() async {
-    try {
-      // Try to get current location
-      try {
-        final position = await _getCurrentLocation();
+  // --- MERGED LOGIC: Listens to Reports AND Shelters ---
+  void _loadAllMarkers() {
+    // Stream 1: Flood Reports
+    FirebaseFirestore.instance.collection('reports').snapshots().listen((reportSnapshot) {
+      if (!mounted) return;
+
+      // Stream 2: Database Shelters
+      FirebaseFirestore.instance.collection('shelters').snapshots().listen((shelterSnapshot) {
+        if (!mounted) return;
+
         setState(() {
-          _currentPosition = LatLng(position.latitude, position.longitude);
+          _markers.clear();
+
+          // A. ADD FLOOD REPORTS (Red/Orange/Yellow)
+          for (var doc in reportSnapshot.docs) {
+            final data = doc.data();
+            final GeoPoint geoPoint = data['location'];
+            final String severity = data['severity'] ?? 'LOW';
+            
+            _markers.add(
+              Marker(
+                markerId: MarkerId(doc.id),
+                position: LatLng(geoPoint.latitude, geoPoint.longitude),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  severity == 'SEVERE' ? BitmapDescriptor.hueRed : 
+                  severity == 'MODERATE' ? BitmapDescriptor.hueOrange : 
+                  BitmapDescriptor.hueYellow
+                ),
+                onTap: () => _showReportDetails(data, doc.id),
+              ),
+            );
+          }
+
+          // B. ADD DATABASE SHELTERS (Green)
+          for (var doc in shelterSnapshot.docs) {
+            final data = doc.data();
+            final GeoPoint geoPoint = data['location'];
+            _markers.add(_buildShelterMarker(doc.id, geoPoint.latitude, geoPoint.longitude, data['name'] ?? 'Shelter'));
+          }
+
+          // C. ADD HARDCODED SHELTERS (Green)
+          for (var s in _hardcodedShelters) {
+            _markers.add(_buildShelterMarker(s['id'], s['lat'], s['lng'], s['name']));
+          }
         });
-      } catch (e) {
-        // Default to Kuantan if location fails
-        setState(() {
-          _currentPosition = const LatLng(3.8167, 103.3317);
-        });
-      }
-      
-      // Add dummy markers
-      _addDummyMarkers();
-      
-      setState(() {
-        _isLoading = false;
-        _mapInitialized = true;
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to initialize map: $e';
-      });
-    }
-  }
-
-  Future<Position> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Return default position instead of throwing
-      return Position(
-        latitude: 3.8167,
-        longitude: 103.3317,
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Return default position
-        return Position(
-          latitude: 3.8167,
-          longitude: 103.3317,
-          timestamp: DateTime.now(),
-          accuracy: 0,
-          altitude: 0,
-          altitudeAccuracy: 0,
-          heading: 0,
-          headingAccuracy: 0,
-          speed: 0,
-          speedAccuracy: 0,
-        );
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      // Return default position
-      return Position(
-        latitude: 3.8167,
-        longitude: 103.3317,
-        timestamp: DateTime.now(),
-        accuracy: 0,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
-    }
-
-    return await Geolocator.getCurrentPosition();
-  }
-
-  void _addDummyMarkers() {
-    setState(() {
-      for (var report in _dummyReports) {
-        _markers.add(_createMarkerFromReport(report));
-      }
     });
   }
 
-  Marker _createMarkerFromReport(Map<String, dynamic> report) {
-    BitmapDescriptor markerIcon;
-    
-    // Set marker icon based on severity
-    switch (report['severity']) {
-      case 'high':
-        markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-        break;
-      case 'medium':
-        markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
-        break;
-      case 'low':
-        markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
-        break;
-      case 'shelter':
-        markerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
-        break;
-      default:
-        markerIcon = BitmapDescriptor.defaultMarker;
-    }
-
+  Marker _buildShelterMarker(String id, double lat, double lng, String name) {
     return Marker(
-      markerId: MarkerId(report['id']),
-      position: LatLng(report['lat'], report['lng']),
-      infoWindow: InfoWindow(
-        title: report['title'],
-        snippet: report['snippet'],
-      ),
-      icon: markerIcon,
-      onTap: () => _showReportDetails(report),
+      markerId: MarkerId(id),
+      position: LatLng(lat, lng),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+      infoWindow: InfoWindow(title: name, snippet: "Official Evacuation Center"),
     );
   }
 
-  void _showReportDetails(Map<String, dynamic> report) {
+  void _showReportDetails(Map<String, dynamic> data, String id) {
+    final String severity = data['severity'] ?? 'LOW';
+    final Timestamp? time = data['timestamp'] as Timestamp?;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -205,191 +131,109 @@ class _MapScreenState extends State<MapScreen> {
           children: [
             Row(
               children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: report['severity'] == 'high' ? Colors.red :
-                           report['severity'] == 'medium' ? Colors.orange :
-                           report['severity'] == 'low' ? Colors.yellow :
-                           Colors.green,
-                  ),
-                ),
+                Icon(Icons.warning, color: _getSeverityColor(severity)),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    report['title'],
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                Text("Flood Level: $severity", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 12),
-            Text(report['snippet']),
+            Text(data['description'] ?? 'No additional details provided.'),
             const SizedBox(height: 8),
-            Text(
-              'Reported: ${_getTimeAgo(report['timestamp'])}',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-            if (report['verified'] == true) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.verified, color: Colors.blue, size: 16),
-                  const SizedBox(width: 4),
-                  const Text(
-                    'Verified by AI',
-                    style: TextStyle(color: Colors.blue, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
+            if (time != null)
+              Text('Reported: ${_getTimeAgo(time.toDate())}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      _mapController?.animateCamera(
-                        CameraUpdate.newLatLng(LatLng(report['lat'], report['lng'])),
-                      );
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('View on Map'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      _shareReport(report);
-                    },
-                    child: const Text('Share'),
-                  ),
-                ),
-              ],
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 45), backgroundColor: Colors.blue),
+              child: const Text('Close', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
       ),
     );
-  }
-
-  String _getTimeAgo(DateTime timestamp) {
-    final difference = DateTime.now().difference(timestamp);
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} minutes ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} hours ago';
-    } else {
-      return '${difference.inDays} days ago';
-    }
-  }
-
-  void _shareReport(Map<String, dynamic> report) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Sharing: ${report['title']}')),
-    );
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    setState(() {
-      _mapController = controller;
-      _mapInitialized = true;
-    });
-  }
-
-  void _changeMapType(String type) {
-    setState(() {
-      _selectedMapType = type;
-      MapType mapType;
-      
-      switch (type) {
-        case 'satellite':
-          mapType = MapType.satellite;
-          break;
-        case 'hybrid':
-          mapType = MapType.hybrid;
-          break;
-        case 'terrain':
-          mapType = MapType.terrain;
-          break;
-        default:
-          mapType = MapType.normal;
-      }
-      
-      _mapController?.setMapType(mapType);
-    });
   }
 
   void _showMapTypeSelector() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Map Type',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            const Text('Select Map Style', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            _buildMapTypeOption('Normal', 'normal', Icons.map),
-            _buildMapTypeOption('Satellite', 'satellite', Icons.satellite),
-            _buildMapTypeOption('Hybrid', 'hybrid', Icons.layers),
-            _buildMapTypeOption('Terrain', 'terrain', Icons.terrain),
+            _buildMapTypeOption('Normal', MapType.normal, Icons.map),
+            _buildMapTypeOption('Satellite', MapType.satellite, Icons.satellite),
+            _buildMapTypeOption('Hybrid', MapType.hybrid, Icons.layers),
+            _buildMapTypeOption('Terrain', MapType.terrain, Icons.terrain),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMapTypeOption(String title, String value, IconData icon) {
-    bool isSelected = _selectedMapType == value;
-    
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isSelected ? Colors.blue : Colors.transparent,
-          width: 2,
+  Widget _buildMapTypeOption(String title, MapType type, IconData icon) {
+    bool isSelected = _currentMapType == type;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? Colors.blue : Colors.grey),
+      title: Text(title, style: TextStyle(color: isSelected ? Colors.blue : Colors.black)),
+      trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+      onTap: () {
+        setState(() => _currentMapType = type);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  String _getTimeAgo(DateTime timestamp) {
+    final difference = DateTime.now().difference(timestamp);
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    return '${difference.inDays}d ago';
+  }
+
+  Color _getSeverityColor(String severity) {
+    if (severity == 'SEVERE') return Colors.red;
+    if (severity == 'MODERATE') return Colors.orange;
+    return Colors.yellow.shade700;
+  }
+
+  Widget _buildMiniLegend() {
+    return Positioned(
+      top: 10, right: 10,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLegendItem(Colors.red, 'Severe'),
+            _buildLegendItem(Colors.orange, 'Moderate'),
+            _buildLegendItem(Colors.yellow, 'Low'),
+            _buildLegendItem(Colors.green, 'Shelter'),
+          ],
         ),
       ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: isSelected ? Colors.blue : Colors.grey[700],
-          size: 28,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.blue : Colors.black,
-          ),
-        ),
-        trailing: isSelected
-            ? const Icon(Icons.check_circle, color: Colors.blue)
-            : null,
-        onTap: () {
-          _changeMapType(value);
-          Navigator.pop(context);
-        },
+    );
+  }
+
+  Widget _buildLegendItem(Color color, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.location_on, color: color, size: 14),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
@@ -398,159 +242,73 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return GradientScaffold(
       appBar: AppBar(
-        title: const Text(
-          'Flood Risk Map',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Banjir Beacon', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.layers, color: Colors.black),
-            onPressed: _showMapTypeSelector,
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline, color: Colors.black),
-            onPressed: () {
-              setState(() => _showLegend = !_showLegend);
-            },
-          ),
+          IconButton(icon: const Icon(Icons.layers, color: Colors.black), onPressed: _showMapTypeSelector),
         ],
       ),
-      body: Stack(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_errorMessage != null)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading map',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[700]),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _initializeMap,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          else if (_currentPosition != null)
-            GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: _currentPosition!,
-                zoom: 14.0,
-              ),
-              markers: _markers,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
-              compassEnabled: true,
-              trafficEnabled: true,
-              mapToolbarEnabled: true,
-              onTap: (latLng) {
-                _showAddReportDialog(latLng);
-              },
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Welcome Back,", style: TextStyle(fontSize: 16, color: Colors.black54)),
+                Text("Kuantan Safety Overview", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+              ],
             ),
-          
-          // Legend overlay
-          if (_showLegend)
-            Positioned(
-              top: 16,
-              right: 16,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Container(
-                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Legend',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: Stack(
+                    children: [
+                      GoogleMap(
+                        initialCameraPosition: const CameraPosition(target: _kuantanCenter, zoom: 12),
+                        onMapCreated: (controller) => _mapController = controller,
+                        markers: _markers,
+                        mapType: _currentMapType,
+                        myLocationEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildLegendItem(Colors.red, 'Severe Flood (High Risk)'),
-                    _buildLegendItem(Colors.orange, 'Moderate Flood'),
-                    _buildLegendItem(Colors.yellow, 'Minor Flood'),
-                    _buildLegendItem(Colors.green, 'Evacuation Center'),
-                    const Divider(),
-                    _buildLegendItem(Colors.purple, 'Purple Zone (High Risk Area)'),
-                    Row(
-                      children: [
-                        Container(
-                          width: 16,
-                          height: 4,
-                          color: Colors.green,
+                      Positioned(
+                        bottom: 10, right: 10,
+                        child: FloatingActionButton.small(
+                          backgroundColor: Colors.white,
+                          child: Icon(Icons.info_outline, color: _showLegend ? Colors.blue : Colors.grey),
+                          onPressed: () => setState(() => _showLegend = !_showLegend),
                         ),
-                        const SizedBox(width: 8),
-                        const Text('Safe Route'),
-                      ],
-                    ),
-                  ],
+                      ),
+                      if (_showLegend) _buildMiniLegend(),
+                    ],
+                  ),
                 ),
               ),
             ),
-
-          // Quick report button
-          Positioned(
-            bottom: 16,
-            left: 16,
-            right: 16,
-            child: SafeArea(
-              child: Container(
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    _showQuickReportDialog();
-                  },
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text(
-                    'Quick Report Flood',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                  ),
-                ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(25.0),
+            child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportScreen())),
+              icon: const Icon(Icons.camera_alt, color: Colors.white),
+              label: const Text("QUICK REPORT FLOOD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                elevation: 8,
               ),
             ),
           ),
@@ -558,101 +316,4 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
   }
-
-  Widget _buildLegendItem(Color color, String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  void _showAddReportDialog(LatLng position) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Report Flood Here?'),
-        content: Text('Lat: ${position.latitude.toStringAsFixed(4)}\nLng: ${position.longitude.toStringAsFixed(4)}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Navigate to Report Screen')),
-              );
-            },
-            child: const Text('Report'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQuickReportDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Quick Report',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.water_drop, color: Colors.orange),
-              title: const Text('Rising Water'),
-              subtitle: const Text('Water level increasing slowly'),
-              onTap: () => _submitQuickReport('rising'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.warning, color: Colors.red),
-              title: const Text('Severe Flood'),
-              subtitle: const Text('Deep water, dangerous conditions'),
-              onTap: () => _submitQuickReport('severe'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.safety_check, color: Colors.green),
-              title: const Text('Safe Area'),
-              subtitle: const Text('Area is dry and passable'),
-              onTap: () => _submitQuickReport('safe'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _submitQuickReport(String type) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Quick report submitted: $type'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    print('Quick report: $type at position: $_currentPosition');
-  }
-}
-
-extension on GoogleMapController? {
-  void setMapType(MapType mapType) {}
 }

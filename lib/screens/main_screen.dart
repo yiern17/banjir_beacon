@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'map_screen.dart';
-import 'report_screen.dart';
 import 'info_screen.dart';
+import 'map_screen.dart';
 import 'setting_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -12,35 +11,46 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _currentIndex = 0;
+  // Set default index to 1 (Middle / Home)
+  int _selectedIndex = 1;
 
-  // List of the screens you already created
   final List<Widget> _screens = [
-    const InfoScreen(),     // Index 0
-    const ReportScreen(),  // Index 1
-    const InfoScreen(),    // Index 2
-    const SettingScreen(), // Index 3
+    const InfoScreen(),     // Left Tab (Index 0)
+    const MapScreen(),      // Middle Tab (Index 1)
+    const SettingScreen(),  // Right Tab (Index 2)
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex], // Shows the active screen
+      body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() {
-            _currentIndex = index; // Changes the screen when tapped
+            _selectedIndex = index;
           });
         },
-        type: BottomNavigationBarType.fixed, // Keeps all icons visible
-        selectedItemColor: Colors.blue[900],
+        // Styling the bar to match your theme
+        selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
-          BottomNavigationBarItem(icon: Icon(Icons.warning_amber_rounded), label: 'Report'),
-          BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'Info'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.info_outline),
+            activeIcon: Icon(Icons.info),
+            label: 'Info',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );

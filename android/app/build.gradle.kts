@@ -1,7 +1,15 @@
+import java.util.Properties
+
+// 1. Correct Kotlin syntax for loading properties
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
@@ -21,23 +29,22 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.banjir_beacon"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
-        targetSdkVersion 33
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-        multiDexEnabled true
+        targetSdk = 33 // Notice the '=' and 'targetSdk' instead of 'targetSdkVersion'
+        
+        // Correct Kotlin way to handle Flutter versions
+        versionCode = project.findProperty("flutter-version-code")?.toString()?.toInt() ?: 1
+        versionName = project.findProperty("flutter-version-name")?.toString() ?: "1.0"
+        
+        multiDexEnabled = true
 
-        manifestPlaceholders = [googleMapsKey: "AIzaSyByTuoDuYoC5wbZlZiMGJDYIUdG2XVnPLk"]
+        // 2. Correct Kotlin Map syntax for manifestPlaceholders
+        manifestPlaceholders["googleMapsKey"] = localProperties.getProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -48,8 +55,8 @@ flutter {
 }
 
 dependencies {
-    implementation 'com.google.android.gms:play-services-maps:18.2.0'
-    implementation 'com.google.android.gms:play-services-location:21.0.1'
-    implementation 'androidx.multidex:multidex:2.0.1'
+    // 3. Correct Kotlin syntax for implementation strings
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("androidx.multidex:multidex:2.0.1")
 }
-
