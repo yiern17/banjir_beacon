@@ -6,9 +6,8 @@ class GeminiService {
 
   static Future<Map<String, String>> analyzeFloodImage(dynamic imageFile) async {
     try {
-      // If 'gemini-1.5-flash' fails, try 'models/gemini-1.5-flash-latest'
       final model = GenerativeModel(
-        model: "models/gemini-1.5-flash-latest", 
+        model: "gemini-2.5-flash", // Use the standard flash model name
         apiKey: _apiKey,
       );
 
@@ -16,7 +15,7 @@ class GeminiService {
       
       final content = [
         Content.multi([
-          TextPart("Analyze this flood. Format: Severity: [LOW/MODERATE/SEVERE] | Description: [1 sentence]."),
+          TextPart("Analyze this flood image. Reply EXACTLY with this format:\nSeverity: [LOW, MODERATE, or SEVERE]\nDescription: [One short sentence explaining why]."),
           DataPart('image/jpeg', imageBytes),
         ])
       ];
@@ -24,27 +23,42 @@ class GeminiService {
       final response = await model.generateContent(content);
       final text = response.text ?? "";
 
-      if (text.contains('|')) {
-        final parts = text.split('|');
-        String severity = parts[0].toUpperCase().replaceAll('SEVERITY:', '').trim();
+      // ---------------------------------------------------------
+      // DEBUG: Print exactly what Gemini said to your terminal!
+      // ---------------------------------------------------------
+      print("===== GEMINI RAW RESPONSE =====");
+      print(text);
+      print("===============================");
+
+      // Bulletproof Parsing Logic (Ignores symbols, just looks for keywords)
+      String upperText = text.toUpperCase();
+      
+      if (upperText.contains('SEVERITY:') && upperText.contains('DESCRIPTION:')) {
         
-        // This ensures the value ALWAYS matches your dropdown options
-        if (!["LOW", "MODERATE", "SEVERE"].contains(severity)) {
-           severity = "LOW"; 
+        // 1. Figure out the severity securely
+        String severity = "LOW";
+        if (upperText.contains('SEVERE')) {
+          severity = "SEVERE";
+        } else if (upperText.contains('MODERATE')) {
+          severity = "MODERATE";
         }
+
+        // 2. Extract the description (everything after the word "Description:")
+        int descIndex = text.toLowerCase().indexOf('description:');
+        String description = text.substring(descIndex + 12).trim();
 
         return {
           'severity': severity,
-          'description': parts[1].replaceAll('Description:', '').trim(),
+          'description': description,
         };
       }
       
-      // Defaulting to LOW instead of INVALID prevents the black screen
       return {'severity': 'LOW', 'description': 'AI could not verify, please edit manually.'};
 
     } catch (e) {
-      print("DEBUG ERROR: $e");
-      // Returning 'LOW' here is a "hack" to stop the app from crashing while you debug
+      print("===== GEMINI ERROR =====");
+      print(e);
+      print("========================");
       return {'severity': 'LOW', 'description': 'AI connection error: $e'};
     }
   }

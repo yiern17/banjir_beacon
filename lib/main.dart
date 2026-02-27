@@ -1,14 +1,21 @@
 import 'package:banjir_beacon/screens/login_screen.dart';
+import 'package:banjir_beacon/screens/main_screen.dart';
 import 'package:banjir_beacon/screens/map_screen.dart';
 import 'package:banjir_beacon/screens/report_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'widgets/gradient_scaffold.dart'; 
 import 'package:banjir_beacon/screens/info_screen.dart';
+import 'package:firebase_core/firebase_core.dart'; // Add this import
 
-void main() {
+void main() async {
+  // Add these two lines to wake up Firebase
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); 
+
   runApp(const MyApp());
 }
+
 
 // 1. THE MANAGER (Do not change this)
 class MyApp extends StatelessWidget {
@@ -25,7 +32,7 @@ class MyApp extends StatelessWidget {
         textTheme: GoogleFonts.poppinsTextTheme(), 
       ),
       // It tells the app to load HomeScreen
-      home: const InfoScreen(), 
+      home: const LoginScreen(), 
      );
   }
 }
