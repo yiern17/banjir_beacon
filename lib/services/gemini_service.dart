@@ -7,7 +7,7 @@ class GeminiService {
   static Future<Map<String, String>> analyzeFloodImage(dynamic imageFile) async {
     try {
       final model = GenerativeModel(
-        model: "gemini-3.0-pro", // Use the standard flash model name
+        model: "gemini-2.5-flash", // Use the standard flash model name
         apiKey: _apiKey,
       );
 
