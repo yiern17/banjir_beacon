@@ -18,9 +18,10 @@ Banjir Beacon is a real-time, crowd-sourced flood mapping and disaster response 
 
 To run this project on your local machine, ensure you have the Flutter SDK installed and an Android Emulator configured. An emulator running API Level 34 is highly recommended for optimal Google Maps stability.
 
-1. Clone the repository and install dependencies:
-git clone https://github.com/yiern17/banjir_beacon.git
-cd banjir_beacon
+1. Clone the repository and install dependencies:  
+
+git clone https://github.com/yiern17/banjir_beacon.git  
+cd banjir_beacon  
 flutter pub get
 
 2. Configure API Keys and Services:
