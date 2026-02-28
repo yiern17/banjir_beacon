@@ -11,7 +11,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // Set default index to 1 (Middle / Home)
+  // Set default index to 1
   int _selectedIndex = 1;
 
   final List<Widget> _screens = [
@@ -31,7 +31,7 @@ class _MainScreenState extends State<MainScreen> {
             _selectedIndex = index;
           });
         },
-        // Styling the bar to match your theme
+        
         selectedItemColor: Colors.blueAccent,
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,

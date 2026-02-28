@@ -14,9 +14,6 @@ class SettingScreen extends StatefulWidget {
 class _SettingScreenState extends State<SettingScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
 
-  // -------------------------------------------------------------
-  // POPUP 1: Edit Phone Number
-  // -------------------------------------------------------------
   Future<void> _showEditPhoneDialog(String currentPhone) async {
     final TextEditingController phoneController = TextEditingController(text: currentPhone);
 
@@ -62,9 +59,6 @@ class _SettingScreenState extends State<SettingScreen> {
     );
   }
 
-  // -------------------------------------------------------------
-  // POPUP 2: Edit Medical / Special Needs
-  // -------------------------------------------------------------
   Future<void> _showEditMedicalDialog(String currentMedical) async {
     // If it currently says "None specified", start with an empty text box
     final initialText = currentMedical == 'None specified' ? '' : currentMedical;
@@ -161,7 +155,7 @@ class _SettingScreenState extends State<SettingScreen> {
           return ListView(
             padding: const EdgeInsets.all(20.0),
             children: [
-              // --- PROFILE CARD ---
+              //PROFILE CARD
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -237,7 +231,7 @@ class _SettingScreenState extends State<SettingScreen> {
 
               const SizedBox(height: 30),
 
-              // --- LOGOUT BUTTON ---
+              //LOGOUT BUTTON
               ElevatedButton.icon(
                 icon: const Icon(Icons.logout, color: Colors.red),
                 label: const Text("SIGN OUT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),

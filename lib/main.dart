@@ -6,10 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'widgets/gradient_scaffold.dart'; 
 import 'package:banjir_beacon/screens/info_screen.dart';
-import 'package:firebase_core/firebase_core.dart'; // Add this import
+import 'package:firebase_core/firebase_core.dart'; 
 
 void main() async {
-  // Add these two lines to wake up Firebase
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); 
 
@@ -17,7 +16,7 @@ void main() async {
 }
 
 
-// 1. THE MANAGER (Do not change this)
+// 1. THE MANAGER
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -31,23 +30,20 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: GoogleFonts.poppinsTextTheme(), 
       ),
-      // It tells the app to load HomeScreen
       home: const LoginScreen(), 
      );
   }
 }
 
-// 2. THE SCREEN (We use GradientScaffold here!)
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // --- LOOK HERE: We replaced "Scaffold" with "GradientScaffold" ---
     return GradientScaffold(
       appBar: AppBar(
         title: const Text('Banjir Beacon', style: TextStyle(color: Color.fromARGB(255, 0, 0, 0))),
-        backgroundColor: Colors.transparent, // Make it transparent to see the gradient!
+        backgroundColor: Colors.transparent, 
         elevation: 0,
       ),
       body: Center(

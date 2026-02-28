@@ -25,7 +25,7 @@ class _ReportScreenState extends State<ReportScreen> {
   GeoPoint _generateRandomKuantanLocation() {
   final random = Random();
 
-  // Realistic Kuantan base areas (Hotspots)
+  
   final List<Map<String, double>> kuantanHotspots = [
     {'lat': 3.8126, 'lng': 103.3256}, // Kuantan City Center
     {'lat': 3.8340, 'lng': 103.3030}, // Indera Mahkota
@@ -35,11 +35,10 @@ class _ReportScreenState extends State<ReportScreen> {
     {'lat': 3.7910, 'lng': 103.2920}, // Sungai Isap (Prone to floods)
   ];
 
-  // Pick a random hotspot from the list
+  
   final hotspot = kuantanHotspots[random.nextInt(kuantanHotspots.length)];
 
-  // Add a tiny random offset (roughly a ~500m to 1km radius)
-  // This makes sure the pins don't stack perfectly on top of each other
+  
   double offsetLat = (random.nextDouble() - 0.5) * 0.01;
   double offsetLng = (random.nextDouble() - 0.5) * 0.01;
 
@@ -128,15 +127,14 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Wrapped in GradientScaffold to match your other screens
     return GradientScaffold(
       appBar: AppBar(
         title: const Text(
           "Emergency Report", 
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
         ), 
-        //leading: const CloseButton(color: Colors.black),
-        backgroundColor: Colors.transparent, // Match InfoScreen style
+        
+        backgroundColor: Colors.transparent, 
         elevation: 0,
         centerTitle: true,
       ),
@@ -290,7 +288,7 @@ class _ReportScreenState extends State<ReportScreen> {
           onPressed: _isSubmitting ? null : _submitReport,
           style: ElevatedButton.styleFrom(
             minimumSize: const Size(double.infinity, 55), 
-            backgroundColor: const Color(0xFF2C3E50), // Dark color matching your Info screen text
+            backgroundColor: const Color(0xFF2C3E50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           child: _isSubmitting 

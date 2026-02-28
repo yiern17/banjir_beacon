@@ -8,7 +8,6 @@ class InfoScreen extends StatelessWidget {
 
   // Function to open a map location
   Future<void> _openMap(String locationQuery) async {
-    // Note: In a real app, we'd use a proper Google Maps URL
     final Uri mapUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$locationQuery');
     if (await canLaunchUrl(mapUri)) {
       await launchUrl(mapUri, mode: LaunchMode.externalApplication);
@@ -47,7 +46,6 @@ class InfoScreen extends StatelessWidget {
           const SizedBox(height: 30),
           
           _buildSectionHeader('Emergency Contacts'),
-          // NOTICE: We are now passing 'context' as the first argument!
           _buildContactCard(context, 'Bomba (Fire Dept)', '994', Colors.red),
           _buildContactCard(context, 'Civil Defence (APM)', '999', Colors.orange),
           _buildContactCard(context, 'Police (PDRM)', '999', Colors.indigo),
@@ -83,7 +81,6 @@ class InfoScreen extends StatelessWidget {
     );
   }
 
-  // ADDED 'BuildContext context' to the parameters here
   Widget _buildContactCard(BuildContext context, String agency, String number, Color color) {
     return Card(
       elevation: 0,
@@ -99,7 +96,6 @@ class InfoScreen extends StatelessWidget {
         subtitle: Text('Tap to call: $number'),
         trailing: Icon(Icons.phone_forwarded, color: color),
         onTap: () {
-          // Now 'context' works because we passed it in!
           Navigator.push(
             context,
             MaterialPageRoute(

@@ -18,7 +18,7 @@ class _MapScreenState extends State<MapScreen> {
   MapType _currentMapType = MapType.normal;
   bool _showLegend = false;
 
-  // 1. Hardcoded Shelters for Demo
+  
   final List<Map<String, dynamic>> _hardcodedShelters = [
     {
       'id': 'shelter_1',
@@ -51,10 +51,10 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAllMarkers(); // Single call to load everything
+    _loadAllMarkers(); 
   }
 
-  // --- MERGED LOGIC: Listens to Reports AND Shelters ---
+  
   void _loadAllMarkers() {
     // Stream 1: Flood Reports
     FirebaseFirestore.instance.collection('reports').snapshots().listen((reportSnapshot) {
@@ -87,14 +87,14 @@ class _MapScreenState extends State<MapScreen> {
             );
           }
 
-          // B. ADD DATABASE SHELTERS (Green)
+          
           for (var doc in shelterSnapshot.docs) {
             final data = doc.data();
             final GeoPoint geoPoint = data['location'];
             _markers.add(_buildShelterMarker(doc.id, geoPoint.latitude, geoPoint.longitude, data['name'] ?? 'Shelter'));
           }
 
-          // C. ADD HARDCODED SHELTERS (Green)
+          
           for (var s in _hardcodedShelters) {
             _markers.add(_buildShelterMarker(s['id'], s['lat'], s['lng'], s['name']));
           }

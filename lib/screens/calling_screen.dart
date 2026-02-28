@@ -22,7 +22,6 @@ class _CallingScreenState extends State<CallingScreen> {
   @override
   void initState() {
     super.initState();
-    // Start a timer to make it look real
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         _seconds++;

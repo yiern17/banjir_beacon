@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLogin = true;
   bool _isLoading = false;
 
-  // Added the two new controllers!
+  
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // Best Practice: Clear memory when the screen is closed
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
@@ -49,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 40),
 
-              // This widget creates the smooth slide-down animation!
               AnimatedSize(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
@@ -139,15 +137,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     try {
                       if (isLogin) {
-                        // ---------------------------------------------------------
-                        // FIREBASE LOGIN
-                        // ---------------------------------------------------------
                         await FirebaseAuth.instance.signInWithEmailAndPassword(
                           email: _emailController.text.trim(),
                           password: _passwordController.text.trim(),
                         );
 
-                        // ONLY go to Main Screen if they successfully log in!
+                        // ONLY go to Main Screen if they successfully log in
                         if (context.mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -156,9 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         }
 
                       } else {
-                        // ---------------------------------------------------------
-                        // FIREBASE SIGN UP
-                        // ---------------------------------------------------------
                         UserCredential userCred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
                           email: _emailController.text.trim(),
                           password: _passwordController.text.trim(),
@@ -176,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'createdAt': FieldValue.serverTimestamp(), 
                         });
 
-                        // CRITICAL: Firebase auto-logs you in on sign up. We must sign them out!
+                        //sign them out
                         await FirebaseAuth.instance.signOut();
 
                         if (context.mounted) {
@@ -194,8 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             _nameController.clear();
                             _phoneController.clear();
                             _passwordController.clear();
-                            // Notice we DO NOT clear the email controller—it's a nice UX touch 
-                            // to leave their email filled in so they only have to type their password!
                           });
                         }
                       }
